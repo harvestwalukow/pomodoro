@@ -25,11 +25,53 @@ export default function Timer() {
     getStep(0).durationMinutes * 60
   );
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [muted, setMuted] = useState<boolean>(false);
 
   const currentStep: Step = useMemo(() => getStep(stepIndex), [stepIndex]);
   const totalSeconds = currentStep.durationMinutes * 60;
 
   const intervalRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const ensureAudio = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    // Some browsers require user interaction before creating/resuming
+    if (!audioCtxRef.current) {
+      const Ctx =
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext || AudioContext;
+      audioCtxRef.current = new Ctx();
+    }
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+    return audioCtxRef.current;
+  }, []);
+
+  const playChime = useCallback(
+    (kind: "focus" | "break") => {
+      if (muted) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const duration = 0.18;
+
+      const freqs = kind === "focus" ? [880, 1320] : [523.25, 659.25];
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + i * 0.02);
+        osc.stop(now + duration + 0.04 + i * 0.02);
+      });
+    },
+    [ensureAudio, muted]
+  );
 
   // Rehydrate persisted state
   useEffect(() => {
@@ -100,17 +142,21 @@ export default function Timer() {
         minutes,
         phase: currentStep.phase,
       });
+      // alert on phase end
+      playChime(currentStep.phase);
       // advance
       const ni = nextIndex(stepIndex);
       setStepIndex(ni);
       setRemainingSeconds(getStep(ni).durationMinutes * 60);
       setIsRunning(false);
     }
-  }, [remainingSeconds, isRunning, currentStep, stepIndex]);
+  }, [remainingSeconds, isRunning, currentStep, stepIndex, playChime]);
 
   const handleStartPause = useCallback(() => {
+    // prime audio on user interaction
+    ensureAudio();
     setIsRunning((r) => !r);
-  }, []);
+  }, [ensureAudio]);
 
   const handleReset = useCallback(() => {
     setIsRunning(false);
@@ -129,11 +175,13 @@ export default function Timer() {
         phase: currentStep.phase,
       });
     }
+    // alert on manual skip
+    playChime(currentStep.phase);
     const ni = nextIndex(stepIndex);
     setStepIndex(ni);
     setRemainingSeconds(getStep(ni).durationMinutes * 60);
     setIsRunning(false);
-  }, [currentStep.phase, remainingSeconds, stepIndex, totalSeconds]);
+  }, [currentStep.phase, remainingSeconds, stepIndex, totalSeconds, playChime]);
 
   const progress = (totalSeconds - remainingSeconds) / totalSeconds;
 
@@ -195,6 +243,14 @@ export default function Timer() {
         </button>
         <button onClick={handleSkip} style={buttonStyle}>
           Skip
+        </button>
+        <button
+          onClick={() => setMuted((m) => !m)}
+          aria-pressed={muted}
+          title={muted ? "Unmute" : "Mute"}
+          style={buttonStyle}
+        >
+          {muted ? "🔇" : "🔊"}
         </button>
       </div>
     </div>
