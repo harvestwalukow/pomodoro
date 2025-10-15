@@ -32,6 +32,7 @@ export default function Timer() {
 
   const intervalRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const lastTickMsRef = useRef<number | null>(null);
 
   const ensureAudio = useCallback(() => {
     if (typeof window === "undefined") return null;
@@ -106,18 +107,42 @@ export default function Timer() {
   }, [stepIndex, remainingSeconds, isRunning]);
 
   const tick = useCallback(() => {
+    const now = Date.now();
+    if (lastTickMsRef.current == null) {
+      lastTickMsRef.current = now;
+      return;
+    }
+    const elapsedMs = now - lastTickMsRef.current;
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    if (elapsedSeconds <= 0) return;
+    lastTickMsRef.current += elapsedSeconds * 1000;
+    let computedNext: number | null = null;
     setRemainingSeconds((prev) => {
-      const next = clampToNonNegative(prev - 1);
+      const next = clampToNonNegative(prev - elapsedSeconds);
+      computedNext = next;
       return next;
     });
+    // Defer cross-component notification to avoid setState during another render
+    if (computedNext != null) {
+      setTimeout(() => {
+        try {
+          window.dispatchEvent(
+            new CustomEvent("pomodoro:tick", {
+              detail: { remainingSeconds: computedNext as number },
+            })
+          );
+        } catch {}
+      }, 0);
+    }
   }, []);
 
-  // Start/stop interval
+  // Start/stop interval with drift correction (works when tab is backgrounded)
   useEffect(() => {
     if (isRunning) {
       if (intervalRef.current != null)
         window.clearInterval(intervalRef.current);
-      intervalRef.current = window.setInterval(tick, 1000);
+      lastTickMsRef.current = Date.now();
+      intervalRef.current = window.setInterval(tick, 500);
       return () => {
         if (intervalRef.current != null)
           window.clearInterval(intervalRef.current);
@@ -128,8 +153,21 @@ export default function Timer() {
         window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      lastTickMsRef.current = null;
     }
     return () => {};
+  }, [isRunning, tick]);
+
+  // Catch up immediately when tab becomes visible again
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && isRunning) {
+        tick();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
   }, [isRunning, tick]);
 
   // Handle completion
@@ -184,6 +222,21 @@ export default function Timer() {
   }, [currentStep.phase, remainingSeconds, stepIndex, totalSeconds, playChime]);
 
   const progress = (totalSeconds - remainingSeconds) / totalSeconds;
+
+  // Update document title with remaining time while running
+  useEffect(() => {
+    const baseTitle = "Pomodoro";
+    if (isRunning) {
+      document.title = `${formatMMSS(remainingSeconds)} • ${
+        currentStep.phase === "focus" ? "Focus" : "Break"
+      }`;
+    } else {
+      document.title = baseTitle;
+    }
+    return () => {
+      document.title = baseTitle;
+    };
+  }, [isRunning, remainingSeconds, currentStep.phase]);
 
   return (
     <div style={{ display: "grid", gap: 16, justifyItems: "center" }}>

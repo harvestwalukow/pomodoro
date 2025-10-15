@@ -1,25 +1,13 @@
-import Link from "next/link";
 import Timer from "@/app/components/Timer";
+import Dashboard from "@/app/components/Dashboard";
 
 export default function Home() {
   return (
     <div
       style={{ display: "grid", gap: 16, justifyItems: "center", padding: 16 }}
     >
-      <header
-        style={{
-          width: "100%",
-          maxWidth: 640,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+      <header style={{ width: "100%", maxWidth: 640 }}>
         <div style={{ fontWeight: 700 }}>Pomodoro</div>
-        <nav style={{ display: "flex", gap: 12 }}>
-          <Link href="/">Timer</Link>
-          <Link href="/dashboard">Dashboard</Link>
-        </nav>
       </header>
       <main
         style={{
@@ -31,6 +19,8 @@ export default function Home() {
         }}
       >
         <Timer />
+        <div style={{ height: 8 }} />
+        <Dashboard />
       </main>
     </div>
   );

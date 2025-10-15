@@ -31,11 +31,17 @@ export function appendLog(entry: LogEntry): void {
   const logs = readLogs();
   logs.push(entry);
   window.localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
+  try {
+    window.dispatchEvent(new CustomEvent("pomodoro:logs-updated"));
+  } catch {}
 }
 
 export function clearLogs(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(LOGS_KEY);
+  try {
+    window.dispatchEvent(new CustomEvent("pomodoro:logs-updated"));
+  } catch {}
 }
 
 export function readState(): PersistedState | null {
