@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Timer/stopwatch outer circle -->
+  <circle cx="12" cy="13" r="8"/>
+  <!-- Timer top button -->
+  <path d="M9 3h6"/>
+  <path d="M15 3v2"/>
+  <path d="M9 3v2"/>
+  <!-- Small crown detail -->
+  <path d="M17.5 6.5l1.5-1.5"/>
+  <!-- Timer hand -->
+  <path d="M12 13l3.5-2"/>
+  <!-- Subtle tick for 12 o'clock -->
+  <path d="M12 5v1"/>
+</svg>
