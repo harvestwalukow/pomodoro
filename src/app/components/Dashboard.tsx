@@ -305,9 +305,6 @@ export default function Dashboard() {
             </g>
           );
         })}
-        <text x={20} y={20} fill="#888" fontSize={12}>
-          Focus minutes per day (scaled to weekly max)
-        </text>
       </svg>
     </div>
   );
